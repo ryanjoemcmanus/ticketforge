@@ -1,0 +1,22 @@
+@baseUrl = http://localhost:8080/api/v1
+@customerEmail = customer@ticketforge.local
+@organizerEmail = organizer@ticketforge.local
+@password = DemoPass123!
+
+### Browse seeded events
+GET {{baseUrl}}/events?size=10
+
+### Customer login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{"email":"{{customerEmail}}","password":"{{password}}"}
+
+### Organizer login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{"email":"{{organizerEmail}}","password":"{{password}}"}
+
+### Health
+GET http://localhost:8080/actuator/health

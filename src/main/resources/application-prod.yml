@@ -1,0 +1,33 @@
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 25s
+  jpa:
+    properties:
+      hibernate.generate_statistics: false
+  datasource:
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 5000
+      validation-timeout: 3000
+server:
+  shutdown: graceful
+  forward-headers-strategy: framework
+  compression:
+    enabled: true
+  error:
+    include-stacktrace: never
+    include-exception: false
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: never
+ticketforge:
+  demo:
+    enabled: false
+  auth:
+    expose-development-tokens: false

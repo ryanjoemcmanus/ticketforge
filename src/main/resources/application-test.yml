@@ -1,0 +1,9 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+ticketforge:
+  auth:
+    expose-development-tokens: true
+  jwt:
+    secret: test-secret-must-be-at-least-thirty-two-bytes-long

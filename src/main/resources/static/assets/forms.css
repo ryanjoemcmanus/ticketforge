@@ -1,0 +1,25 @@
+select {
+  background: #151a14;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink);
+  padding: 12px 14px;
+  font: 500 14px "DM Sans", sans-serif;
+  outline: none;
+}
+
+.auth-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.auth-links button {
+  border: 0;
+  background: none;
+  color: var(--accent2);
+  cursor: pointer;
+  padding: 0;
+  font: 600 12px "DM Sans", sans-serif;
+}

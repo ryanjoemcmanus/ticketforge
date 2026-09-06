@@ -1,0 +1,42 @@
+# Deployment-ready Render Blueprint. This file creates nothing until manually imported in Render.
+services:
+  - type: web
+    name: ticketforge
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /actuator/health/readiness
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        fromDatabase:
+          name: ticketforge-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: ticketforge-db
+          property: password
+      - key: JWT_SECRET
+        generateValue: true
+      - key: APP_URL
+        sync: false
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+      - key: PAYMENT_PROVIDER
+        value: mock
+      - key: NOTIFICATION_PROVIDER
+        value: log
+      - key: DEMO_DATA
+        value: "false"
+      - key: EXPOSE_DEVELOPMENT_TOKENS
+        value: "false"
+databases:
+  - name: ticketforge-db
+    databaseName: ticketforge
+    user: ticketforge
+    plan: basic-256mb

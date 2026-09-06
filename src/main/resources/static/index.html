@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="TicketForge — concurrency-safe event ticketing." />
+    <title>TicketForge — Own the moment</title>
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="stylesheet" href="/assets/forms.css" />
+  </head>
+  <body>
+    <div class="glow glow-one"></div><div class="glow glow-two"></div>
+    <header class="shell nav">
+      <a class="brand" href="#"><span class="brand-mark">TF</span><span>TicketForge</span></a>
+      <nav><button class="nav-link" data-view="discover">Discover</button><button class="nav-link hidden" id="dashboardNav" data-view="dashboard">Dashboard</button></nav>
+      <div class="nav-actions"><span id="identity" class="identity"></span><button id="authButton" class="button button-ghost">Sign in</button></div>
+    </header>
+
+    <main class="shell">
+      <section id="discoverView">
+        <div class="hero">
+          <div><div class="eyebrow">LIVE EXPERIENCES · ZERO DOUBLE-BOOKINGS</div><h1>Find your next<br /><span>unforgettable night.</span></h1><p>Discover curated events, reserve exact seats, and check out with confidence. Built on a transaction-safe Java backend.</p><div class="hero-actions"><button class="button button-primary" id="exploreButton">Explore events</button><a class="button button-ghost" href="/swagger-ui.html">Explore the API ↗</a></div></div>
+          <div class="hero-card"><div class="hero-card-top"><span>ENGINEERED FOR THE RUSH</span><span class="live-dot">LIVE</span></div><div class="metric"><strong>50</strong><span>simultaneous buyers tested<br />for one final seat</span></div><div class="metric-rule"></div><div class="guarantee"><span>✓</span><div><strong>Exactly one winner</strong><small>PostgreSQL row locks make double-selling impossible.</small></div></div></div>
+        </div>
+
+        <section class="event-section" id="eventsSection"><div class="section-head"><div><span class="eyebrow">UPCOMING</span><h2>Made for the main event.</h2></div><div class="filters"><input id="search" placeholder="Search events" /><select id="category"><option value="">All categories</option><option>MUSIC</option><option>CONFERENCE</option><option>COMEDY</option></select></div></div><div id="events" class="event-grid"><div class="empty">Loading events…</div></div></section>
+      </section>
+
+      <section id="dashboardView" class="hidden"><div class="section-head dashboard-head"><div><span class="eyebrow">YOUR SPACE</span><h2 id="dashboardTitle">Dashboard</h2></div><button class="button button-primary" id="newEventButton">Create event</button></div><div id="dashboardContent" class="dashboard-grid"></div></section>
+    </main>
+
+    <footer class="shell"><span>TicketForge</span><span>Java 21 · Spring Boot · PostgreSQL</span><span>Reference implementation</span></footer>
+
+    <dialog id="authDialog"><button class="dialog-close" data-close>×</button><div id="loginPanel"><span class="eyebrow">WELCOME BACK</span><h2>Sign in to TicketForge</h2><form id="loginForm"><label>Email<input name="email" type="email" required autocomplete="email" /></label><label>Password<input name="password" type="password" required autocomplete="current-password" /></label><button class="button button-primary" type="submit">Sign in</button></form><div class="auth-links"><button data-auth-view="register">Create account</button><button data-auth-view="forgot">Forgot password?</button></div><div class="demo-box"><strong>Demo accounts</strong><button data-demo="customer@ticketforge.local">Customer</button><button data-demo="organizer@ticketforge.local">Organizer</button><button data-demo="admin@ticketforge.local">Admin</button><small>Password: DemoPass123!</small></div><p class="form-error" id="loginError"></p></div><div id="registerPanel" class="hidden"><span class="eyebrow">JOIN THE CROWD</span><h2>Create your account</h2><form id="registerForm"><label>Name<input name="displayName" required maxlength="120" autocomplete="name" /></label><label>Email<input name="email" type="email" required autocomplete="email" /></label><label>Password<input name="password" type="password" minlength="10" maxlength="72" required autocomplete="new-password" /></label><label>Account type<select name="role"><option value="CUSTOMER">Customer</option><option value="ORGANIZER">Event organizer</option></select></label><button class="button button-primary" type="submit">Create account</button></form><div class="auth-links"><button data-auth-view="login">Back to sign in</button></div><p class="form-error" id="registerError"></p></div><div id="forgotPanel" class="hidden"><span class="eyebrow">ACCOUNT RECOVERY</span><h2>Reset your password</h2><p>Enter your email and we’ll send a time-limited reset link.</p><form id="forgotForm"><label>Email<input name="email" type="email" required autocomplete="email" /></label><button class="button button-primary" type="submit">Send reset link</button></form><div class="auth-links"><button data-auth-view="login">Back to sign in</button></div><p class="form-error" id="forgotError"></p></div></dialog>
+
+    <dialog id="resetDialog"><button class="dialog-close" data-close>×</button><span class="eyebrow">CHOOSE A NEW PASSWORD</span><h2>Finish your reset</h2><form id="resetForm"><label>New password<input name="newPassword" type="password" minlength="10" maxlength="72" required autocomplete="new-password" /></label><button class="button button-primary" type="submit">Update password</button></form><p class="form-error" id="resetError"></p></dialog>
+
+    <dialog id="eventDialog" class="wide-dialog"><button class="dialog-close" data-close>×</button><span class="eyebrow">SELECT YOUR SEATS</span><h2 id="eventTitle"></h2><p id="eventMeta" class="muted"></p><div id="seatMap" class="seat-map"></div><div class="checkout-bar"><div><span id="seatCount">0 seats</span><strong id="seatTotal">$0.00</strong></div><button id="holdButton" class="button button-primary" disabled>Hold selected seats</button></div><p class="form-error" id="seatError"></p></dialog>
+
+    <dialog id="checkoutDialog"><button class="dialog-close" data-close>×</button><span class="eyebrow">RESERVATION SECURED</span><h2>Complete your order</h2><p>Your seats are held for ten minutes. Local demo checkout uses a safe mock token—no card data is collected.</p><div class="order-summary" id="holdSummary"></div><button id="checkoutButton" class="button button-primary">Pay with demo token</button><p class="form-error" id="checkoutError"></p></dialog>
+
+    <dialog id="createEventDialog"><button class="dialog-close" data-close>×</button><span class="eyebrow">ORGANIZER STUDIO</span><h2>Create a new event</h2><form id="createEventForm"><label>Venue<select name="venueId" id="venueSelect" required><option value="">Choose a venue</option></select></label><label>Title<input name="title" required maxlength="180" /></label><label>Description<textarea name="description" maxlength="2000"></textarea></label><div class="form-row"><label>Category<input name="category" value="MUSIC" required /></label><label>Seat price<input name="seatPrice" type="number" min="0" step="0.01" value="50.00" required /></label></div><label>Starts at<input name="startsAt" type="datetime-local" required /></label><button class="button button-primary" type="submit">Create draft event</button></form><p class="form-error" id="createEventError"></p></dialog>
+
+    <div id="toast" class="toast"></div>
+    <script src="/assets/app.js" defer></script>
+  </body>
+</html>
