@@ -34,7 +34,7 @@
 	<properties>
 		<java.version>21</java.version>
 		<springdoc.version>3.1.0</springdoc.version>
-		<stripe.version>33.3.0</stripe.version>
+		<stripe.version>33.4.1</stripe.version>
 	</properties>
 	<dependencies>
 		<dependency>

@@ -4,10 +4,16 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: com.diffplug.spotless:spotless-maven-plugin
+        update-types: [version-update:semver-major]
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: eclipse-temurin
+        update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     directory: /
     schedule:

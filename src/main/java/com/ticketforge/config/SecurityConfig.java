@@ -78,7 +78,8 @@ public class SecurityConfig {
                               "ROLE_" + r))
                   .toList();
         });
-    return http.csrf(csrf -> csrf.disable())
+    // API mutations require an Authorization bearer token and never use cookie authentication.
+    return http.csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
         .headers(
             headers ->
                 headers
