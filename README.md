@@ -5,7 +5,7 @@
 [![Spring Boot](https://img.shields.io/badge/Spring_Boot-4-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-TicketForge is a production-style event ticketing reference implementation built with Java and Spring Boot. It demonstrates layered backend architecture, relational modeling, authentication, concurrency control, transactions, idempotency, testing, and operability.
+In my first programming class I was the lead for the backend architecture for our ticketing system project. I figured it would be fun to circle back to my programming 1 project and see what could I improve on now that I'm more experienced in programming! This is a project I worked on alongside reading a book on Java so that it would feel extra fresh and so I could walk down memory lane. TicketForge is a production-style event ticketing reference implementation built with Java and Spring Boot. It demonstrates layered backend architecture, relational modeling, authentication, concurrency control, transactions, idempotency, testing, and operability.
 
 It includes a responsive customer/organizer web experience at `/`, while preserving the REST API as the architectural center. The default configuration is intended for local development and does not process real payments.
 
