@@ -8,6 +8,13 @@ select {
   outline: none;
 }
 
+.ticket-detail { border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin: 12px 0; }
+.ticket-code { overflow-wrap: anywhere; font-family: monospace; }
+@media (max-width: 800px) {
+  .nav { height: auto; min-height: 88px; flex-wrap: wrap; gap: 12px; padding: 16px 0; }
+  .nav nav { display: flex; order: 3; width: 100%; }
+}
+
 .auth-links {
   display: flex;
   justify-content: space-between;

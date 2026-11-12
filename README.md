@@ -189,6 +189,12 @@ node --test src/test/js/*.test.cjs  # client logic tests (Node.js 22+)
 
 The browser client omits bearer tokens from public browsing and authentication calls. A rejected protected request clears its stale session and prompts sign-in; it deliberately does not silently refresh access tokens. Password reset clears the current browser session. Checkout disables duplicate submissions and retains one idempotency key per held-seat checkout attempt across in-page retries (not across page reloads). Client tests cover these behaviors with mocked requests, separate from the PostgreSQL integration suite.
 
+### Browser dashboard workflow
+
+Organizers can create a draft from the dashboard and select **Publish event** to make it available in Discover. The dashboard shows each event's status, start time, and current inventory totals. Event editing, cancellation, venue management, and administrator approvals remain API-only.
+
+Customers can select **View tickets and order** to see event/venue information, seat assignments, ticket codes, and ticket status. Eligible orders expose a whole-order refund form with a required reason and an explicit warning that every ticket will be cancelled. The API supplies current refund eligibility and rechecks ownership and the 24-hour cutoff when the refund is submitted. Refunded tickets remain visible as cancelled history. Dashboard navigation remains available on small screens.
+
 The suite focuses on behavior rather than getters: HTTP contracts, payment and refund boundaries, account lockout, early duplicate validation, application context/migrations, transactional rollback, ownership isolation, token rotation, and the double-booking race.
 
 ## Production tradeoffs and next steps

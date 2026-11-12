@@ -16,7 +16,7 @@ async function client() {
       value: '', textContent: '', innerHTML: '', disabled: false, open: false,
       classList: { toggle() {}, add() {}, remove() {} },
       close() { this.open = false; }, showModal() { this.open = true; },
-      scrollIntoView() {},
+      scrollIntoView() {}, reset() {},
     });
     return elements.get(selector);
   }
@@ -132,4 +132,90 @@ test('new hold gets a new checkout key', async () => {
   c.run("state.hold={id:'hold-2'}");
   await c.run('checkout()');
   assert.notEqual(keys[0], keys[1]);
+});
+
+const orderFixture = {
+  id: 'order-123', status: 'PAYMENT_CONFIRMED', totalAmount: 50,
+  createdAt: '2026-11-12T12:00:00Z', refundable: true,
+  tickets: [{ eventTitle: '<img src=x>', startsAt: '2027-01-01T12:00:00Z',
+    venueName: 'Test Hall', section: 'FLOOR', row: 'A', seat: '1',
+    ticketCode: 'TKT-123', status: 'ISSUED' }],
+};
+
+test('ticket details show codes and seats without rendering untrusted HTML', async () => {
+  const c = await client();
+  c.context.orderFixture = orderFixture;
+  c.run('renderOrder(orderFixture)');
+  const html = c.element('#orderTickets').innerHTML;
+  assert.match(html, /TKT-123/);
+  assert.match(html, /Row A · Seat 1/);
+  assert.match(html, /&lt;img src=x&gt;/);
+  assert.doesNotMatch(html, /<img/);
+});
+
+test('refund sends reason and updates order state after success', async () => {
+  const c = await client();
+  c.context.orderFixture = orderFixture;
+  c.run('renderOrder(orderFixture)');
+  let submitted;
+  c.context.fetch = async (url, options) => {
+    if (url.endsWith('/cancel')) {
+      submitted = JSON.parse(options.body);
+      return response(200, { ...orderFixture, status: 'REFUNDED', refundable: false,
+        tickets: orderFixture.tickets.map(t => ({ ...t, status: 'CANCELLED' })) });
+    }
+    return response(200, url.includes('/events') ? { content: [] } : []);
+  };
+  await c.run("refundOrder({values:{reason:'Plans changed'}})");
+  assert.equal(submitted.reason, 'Plans changed');
+  assert.equal(c.run('state.order.status'), 'REFUNDED');
+  assert.match(c.element('#orderTickets').innerHTML, /no longer valid/);
+  assert.equal(c.element('#refundButton').disabled, false);
+});
+
+test('refund rejection leaves tickets unchanged and displays backend reason', async () => {
+  const c = await client();
+  c.context.orderFixture = orderFixture;
+  c.run('renderOrder(orderFixture)');
+  c.context.fetch = async () => response(409, { detail: 'Refund window closed' });
+  await c.run("refundOrder({values:{reason:'Plans changed'}})");
+  assert.equal(c.run('state.order.status'), 'PAYMENT_CONFIRMED');
+  assert.equal(c.element('#refundError').textContent, 'Refund window closed');
+  assert.equal(c.element('#refundButton').disabled, false);
+});
+
+test('blank refund reason does not send a request', async () => {
+  const c = await client();
+  c.context.orderFixture = orderFixture;
+  c.run('renderOrder(orderFixture)');
+  let calls = 0;
+  c.context.fetch = async () => { calls++; return response(200); };
+  await c.run("refundOrder({values:{reason:'  '}})");
+  assert.equal(calls, 0);
+});
+
+test('publish sends authenticated request and refreshes organizer dashboard', async () => {
+  const c = await client();
+  c.run("state.role='ORGANIZER'");
+  const calls = [];
+  c.context.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return response(200, url.includes('/analytics') ? [] : { content: [] });
+  };
+  await c.run("publishEvent({dataset:{publish:'event-1'},disabled:false})");
+  assert.equal(calls[0].url, '/api/v1/events/event-1/publish');
+  assert.equal(calls[0].options.method, 'POST');
+  assert.equal(calls[0].options.headers.Authorization, 'Bearer old');
+  assert.ok(calls.some(c => c.url.endsWith('/organizer/analytics')));
+});
+
+test('sign-out closes ticket details and clears cached order', async () => {
+  const c = await client();
+  c.context.orderFixture = orderFixture;
+  c.run('renderOrder(orderFixture)');
+  c.element('#orderDialog').open = true;
+  c.run('clearSession()');
+  assert.equal(c.run('state.order'), null);
+  assert.equal(c.element('#orderDialog').open, false);
+  assert.equal(c.element('#orderTickets').textContent, '');
 });

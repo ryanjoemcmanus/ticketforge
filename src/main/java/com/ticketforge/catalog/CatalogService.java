@@ -176,7 +176,14 @@ public class CatalogService {
                       .map(EventSeat::getPrice)
                       .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
               return new CatalogController.EventAnalytics(
-                  e.getId(), e.getTitle(), inv.size(), sold, held, revenue);
+                  e.getId(),
+                  e.getTitle(),
+                  inv.size(),
+                  sold,
+                  held,
+                  revenue,
+                  e.getStatus(),
+                  e.getStartsAt());
             })
         .toList();
   }

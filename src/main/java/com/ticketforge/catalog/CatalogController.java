@@ -145,5 +145,12 @@ public class CatalogController {
       List<EventView> content, int page, int size, long totalElements, int totalPages) {}
 
   public record EventAnalytics(
-      UUID eventId, String title, int capacity, long sold, long held, BigDecimal revenue) {}
+      UUID eventId,
+      String title,
+      int capacity,
+      long sold,
+      long held,
+      BigDecimal revenue,
+      EventStatus status,
+      Instant startsAt) {}
 }

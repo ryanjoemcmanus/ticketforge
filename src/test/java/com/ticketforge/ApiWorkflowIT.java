@@ -139,6 +139,11 @@ class ApiWorkflowIT {
     verify(customerRegistration.get("verificationToken").asText());
     String customerToken = login("buyer@example.com");
 
+    http.perform(get("/api/v1/organizer/analytics").header("Authorization", bearer(organizerToken)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].status").value("PUBLISHED"))
+        .andExpect(jsonPath("$[0].startsAt").exists());
+
     MvcResult detailsResult =
         http.perform(get("/api/v1/events/{id}", eventId))
             .andExpect(status().isOk())
@@ -160,6 +165,10 @@ class ApiWorkflowIT {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.status").value("PAYMENT_CONFIRMED"))
             .andExpect(jsonPath("$.tickets.length()").value(1))
+            .andExpect(jsonPath("$.tickets[0].eventTitle").value("API Tour"))
+            .andExpect(jsonPath("$.tickets[0].venueName").value("API Arena"))
+            .andExpect(jsonPath("$.tickets[0].startsAt").exists())
+            .andExpect(jsonPath("$.refundable").value(true))
             .andReturn();
     String orderId =
         json.readTree(checkoutResult.getResponse().getContentAsString()).get("id").asText();
@@ -170,6 +179,7 @@ class ApiWorkflowIT {
                 .content("{\"reason\":\"Plans changed\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("REFUNDED"))
+        .andExpect(jsonPath("$.refundable").value(false))
         .andExpect(jsonPath("$.tickets[0].status").value("CANCELLED"));
 
     assertThat(inventory.findById(java.util.UUID.fromString(eventSeatId)).orElseThrow().getStatus())

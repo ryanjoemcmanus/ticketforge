@@ -157,7 +157,10 @@ public class CheckoutService {
                         t.getEventSeat().getId(),
                         t.getEventSeat().getSeat().getSectionName(),
                         t.getEventSeat().getSeat().getRowLabel(),
-                        t.getEventSeat().getSeat().getSeatNumber()))
+                        t.getEventSeat().getSeat().getSeatNumber(),
+                        t.getEventSeat().getEvent().getTitle(),
+                        t.getEventSeat().getEvent().getStartsAt(),
+                        t.getEventSeat().getEvent().getVenue().getName()))
             .toList();
     return new CheckoutController.OrderView(
         o.getId(),
@@ -165,6 +168,10 @@ public class CheckoutService {
         o.getTotalAmount(),
         o.getPaymentReference(),
         o.getCreatedAt(),
-        ts);
+        ts,
+        o.getStatus() == OrderStatus.PAYMENT_CONFIRMED
+            && !ts.isEmpty()
+            && ts.stream()
+                .allMatch(t -> t.startsAt().isAfter(Instant.now().plus(Duration.ofHours(24)))));
   }
 }

@@ -58,7 +58,10 @@ public class CheckoutController {
       UUID eventSeatId,
       String section,
       String row,
-      String seat) {}
+      String seat,
+      String eventTitle,
+      Instant startsAt,
+      String venueName) {}
 
   public record OrderView(
       UUID id,
@@ -66,5 +69,6 @@ public class CheckoutController {
       BigDecimal totalAmount,
       String paymentReference,
       Instant createdAt,
-      List<TicketView> tickets) {}
+      List<TicketView> tickets,
+      boolean refundable) {}
 }
