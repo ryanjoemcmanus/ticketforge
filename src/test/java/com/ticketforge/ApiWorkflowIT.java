@@ -1,6 +1,7 @@
 package com.ticketforge;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -21,7 +22,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -50,6 +53,7 @@ class ApiWorkflowIT {
   @Autowired RefreshTokenRepository refreshTokens;
   @Autowired ActionTokenRepository actionTokens;
   @Autowired AuditEventRepository audit;
+  @Autowired JdbcTemplate jdbc;
 
   @BeforeEach
   void clean() {
@@ -67,7 +71,7 @@ class ApiWorkflowIT {
   }
 
   @Test
-  void completeRestWorkflowFromOnboardingThroughRefund() throws Exception {
+  void completeRestWorkflowFromOnboardingThroughRefundAndResale() throws Exception {
     JsonNode organizerRegistration =
         postJson(
             "/api/v1/auth/register",
@@ -170,6 +174,64 @@ class ApiWorkflowIT {
 
     assertThat(inventory.findById(java.util.UUID.fromString(eventSeatId)).orElseThrow().getStatus())
         .isEqualTo(EventSeatStatus.AVAILABLE);
+
+    // Repeat resale to prove history is retained across multiple refund cycles.
+    for (int cycle = 1; cycle <= 2; cycle++) {
+      JsonNode resaleHold =
+          postJson(
+              "/api/v1/holds", "{\"eventSeatIds\":[\"" + eventSeatId + "\"]}", customerToken, 201);
+      String checkoutBody =
+          "{\"holdId\":\"" + resaleHold.get("id").asText() + "\",\"paymentToken\":\"tok_visa\"}";
+      MvcResult resaleResult =
+          http.perform(
+                  post("/api/v1/orders")
+                      .header("Authorization", bearer(customerToken))
+                      .header("Idempotency-Key", "resale-" + cycle)
+                      .contentType(MediaType.APPLICATION_JSON)
+                      .content(checkoutBody))
+              .andExpect(status().isCreated())
+              .andExpect(jsonPath("$.tickets[0].status").value("ISSUED"))
+              .andReturn();
+      String resaleOrderId =
+          json.readTree(resaleResult.getResponse().getContentAsString()).get("id").asText();
+      assertThat(resaleOrderId).isNotEqualTo(orderId);
+      http.perform(
+              post("/api/v1/orders")
+                  .header("Authorization", bearer(customerToken))
+                  .header("Idempotency-Key", "resale-" + cycle)
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(checkoutBody))
+          .andExpect(status().isCreated())
+          .andExpect(jsonPath("$.id").value(resaleOrderId));
+
+      assertThat(tickets.count()).isEqualTo(cycle + 1);
+      assertThat(
+              inventory.findById(java.util.UUID.fromString(eventSeatId)).orElseThrow().getStatus())
+          .isEqualTo(EventSeatStatus.SOLD);
+      // Even an insert bypassing the service cannot create a second active ticket.
+      assertThatThrownBy(
+              () ->
+                  jdbc.update(
+                      """
+                  INSERT INTO tickets (id, order_id, event_seat_id, ticket_code, status, issued_at)
+                  SELECT gen_random_uuid(), order_id, event_seat_id, gen_random_uuid()::text, 'ISSUED', now()
+                  FROM tickets WHERE event_seat_id = ? AND status = 'ISSUED'
+                  """,
+                      java.util.UUID.fromString(eventSeatId)))
+          .isInstanceOf(DataIntegrityViolationException.class);
+
+      if (cycle == 1) {
+        postJson(
+            "/api/v1/orders/" + resaleOrderId + "/cancel",
+            "{\"reason\":\"Resale refund\"}",
+            customerToken,
+            200);
+      }
+    }
+    http.perform(get("/api/v1/orders/{id}", orderId).header("Authorization", bearer(customerToken)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("REFUNDED"))
+        .andExpect(jsonPath("$.tickets[0].status").value("CANCELLED"));
   }
 
   @Test

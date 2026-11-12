@@ -1,6 +1,7 @@
 package com.ticketforge.catalog;
 
 import com.ticketforge.common.*;
+import com.ticketforge.reservation.*;
 import com.ticketforge.user.*;
 import java.time.Instant;
 import java.util.*;
@@ -15,18 +16,21 @@ public class CatalogService {
   private final EventRepository events;
   private final EventSeatRepository inventory;
   private final UserRepository users;
+  private final SeatHoldRepository holds;
 
   CatalogService(
       VenueRepository venues,
       SeatRepository seats,
       EventRepository events,
       EventSeatRepository inventory,
-      UserRepository users) {
+      UserRepository users,
+      SeatHoldRepository holds) {
     this.venues = venues;
     this.seats = seats;
     this.events = events;
     this.inventory = inventory;
     this.users = users;
+    this.holds = holds;
   }
 
   @Transactional
@@ -120,14 +124,25 @@ public class CatalogService {
 
   @Transactional
   public CatalogController.EventView cancel(UUID actorId, UUID eventId) {
+    // Match checkout/expiry lock order: inventory first, then holds. Lock every
+    // seat so neither a concurrent reservation nor checkout can escape cancellation.
+    List<EventSeat> locked = inventory.findByEventIdLocked(eventId);
     Event e = managed(actorId, eventId);
-    boolean sold =
-        inventory
-            .findByEventIdOrderBySeatSectionNameAscSeatRowLabelAscSeatSeatNumberAsc(eventId)
-            .stream()
-            .anyMatch(i -> i.getStatus() == EventSeatStatus.SOLD);
+    boolean sold = locked.stream().anyMatch(i -> i.getStatus() == EventSeatStatus.SOLD);
     if (sold) throw ApiException.conflict("Refund sold orders before cancelling this event");
     e.cancel();
+    List<UUID> holdIds =
+        locked.stream()
+            .filter(i -> i.getStatus() == EventSeatStatus.HELD)
+            .map(i -> i.getHold().getId())
+            .distinct()
+            .sorted()
+            .toList();
+    for (UUID holdId : holdIds) {
+      SeatHold hold = holds.findLocked(holdId).orElseThrow();
+      if (hold.getStatus() == HoldStatus.ACTIVE) hold.cancel();
+    }
+    locked.stream().filter(i -> i.getStatus() == EventSeatStatus.HELD).forEach(EventSeat::release);
     return eventView(e);
   }
 

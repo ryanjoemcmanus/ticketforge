@@ -97,6 +97,10 @@ public class CheckoutService {
       throw ApiException.conflict("Hold has expired");
     if (locked.isEmpty() || locked.stream().anyMatch(s -> !s.heldBy(hold.getId())))
       throw ApiException.conflict("Hold inventory is no longer valid");
+    // Event cancellation locks the same inventory before changing event status.
+    Event event = hold.getEvent();
+    if (event.getStatus() != EventStatus.PUBLISHED || !event.getStartsAt().isAfter(Instant.now()))
+      throw ApiException.conflict("Event is not available for checkout");
     BigDecimal total =
         locked.stream().map(EventSeat::getPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
     PaymentGateway.PaymentResult payment =

@@ -220,6 +220,134 @@ class ReservationConcurrencyIT {
         .hasMessageContaining("do not manage");
   }
 
+  @Test
+  void eventCancellationInvalidatesHoldsAndPreventsCheckout() {
+    Fixture f = fixture();
+    var hold =
+        reservations.create(
+            f.first().getId(),
+            new ReservationController.CreateHold(List.of(f.inventory().getId())));
+    catalog.cancel(f.event().getOrganizer().getId(), f.event().getId());
+    assertThat(holds.findById(hold.id()).orElseThrow().getStatus()).isEqualTo(HoldStatus.CANCELLED);
+    assertThat(inventory.findById(f.inventory().getId()).orElseThrow().getStatus())
+        .isEqualTo(EventSeatStatus.AVAILABLE);
+    assertThatThrownBy(
+            () ->
+                checkout.checkout(
+                    f.first().getId(),
+                    "cancelled-event",
+                    new CheckoutController.CheckoutRequest(hold.id(), "tok_visa")))
+        .isInstanceOf(ApiException.class);
+    assertThatThrownBy(
+            () ->
+                reservations.create(
+                    f.first().getId(),
+                    new ReservationController.CreateHold(List.of(f.inventory().getId()))))
+        .isInstanceOf(ApiException.class);
+    assertThat(orders.count()).isZero();
+    assertThat(tickets.count()).isZero();
+  }
+
+  @Test
+  void checkoutRejectsEventThatStartedAfterHoldWasCreated() {
+    Fixture f = fixture();
+    var hold =
+        reservations.create(
+            f.first().getId(),
+            new ReservationController.CreateHold(List.of(f.inventory().getId())));
+    f.event().update("Started", "Test", Instant.now().minusSeconds(60), "MUSIC");
+    events.save(f.event());
+    assertThatThrownBy(
+            () ->
+                checkout.checkout(
+                    f.first().getId(),
+                    "started-event",
+                    new CheckoutController.CheckoutRequest(hold.id(), "tok_visa")))
+        .isInstanceOf(ApiException.class)
+        .hasMessageContaining("not available for checkout");
+    assertThat(orders.count()).isZero();
+    assertThat(tickets.count()).isZero();
+  }
+
+  @RepeatedTest(5)
+  void eventCancellationAndCheckoutCannotBothSucceed() throws Exception {
+    Fixture f = fixture();
+    var hold =
+        reservations.create(
+            f.first().getId(),
+            new ReservationController.CreateHold(List.of(f.inventory().getId())));
+    CountDownLatch go = new CountDownLatch(1);
+    try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+      Future<Boolean> cancel =
+          pool.submit(
+              () -> {
+                go.await();
+                try {
+                  catalog.cancel(f.event().getOrganizer().getId(), f.event().getId());
+                  return true;
+                } catch (ApiException expected) {
+                  return false;
+                }
+              });
+      Future<Boolean> purchase =
+          pool.submit(
+              () -> {
+                go.await();
+                try {
+                  checkout.checkout(
+                      f.first().getId(),
+                      "racing-checkout",
+                      new CheckoutController.CheckoutRequest(hold.id(), "tok_visa"));
+                  return true;
+                } catch (ApiException expected) {
+                  return false;
+                }
+              });
+      go.countDown();
+      boolean cancelled = cancel.get(20, TimeUnit.SECONDS);
+      boolean purchased = purchase.get(20, TimeUnit.SECONDS);
+      assertThat(cancelled ^ purchased).isTrue();
+      assertThat(events.findById(f.event().getId()).orElseThrow().getStatus())
+          .isEqualTo(cancelled ? EventStatus.CANCELLED : EventStatus.PUBLISHED);
+      assertThat(tickets.count()).isEqualTo(purchased ? 1 : 0);
+      assertThat(orders.count()).isEqualTo(purchased ? 1 : 0);
+    }
+  }
+
+  @RepeatedTest(5)
+  void cancellationCannotLeaveAConcurrentReservationActive() throws Exception {
+    Fixture f = fixture();
+    CountDownLatch go = new CountDownLatch(1);
+    try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+      Future<?> cancel =
+          pool.submit(
+              () -> {
+                go.await();
+                return catalog.cancel(f.event().getOrganizer().getId(), f.event().getId());
+              });
+      Future<?> reserve =
+          pool.submit(
+              () -> {
+                go.await();
+                try {
+                  return reservations.create(
+                      f.first().getId(),
+                      new ReservationController.CreateHold(List.of(f.inventory().getId())));
+                } catch (ApiException expected) {
+                  return null;
+                }
+              });
+      go.countDown();
+      cancel.get(20, TimeUnit.SECONDS);
+      reserve.get(20, TimeUnit.SECONDS);
+      assertThat(events.findById(f.event().getId()).orElseThrow().getStatus())
+          .isEqualTo(EventStatus.CANCELLED);
+      assertThat(inventory.findById(f.inventory().getId()).orElseThrow().getStatus())
+          .isEqualTo(EventSeatStatus.AVAILABLE);
+      assertThat(holds.findAll()).noneMatch(h -> h.getStatus() == HoldStatus.ACTIVE);
+    }
+  }
+
   private Callable<Boolean> poolTask(
       UUID user, UUID seat, CountDownLatch ready, CountDownLatch go) {
     return () -> {

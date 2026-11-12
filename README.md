@@ -73,9 +73,11 @@ Creating a hold runs in one database transaction:
 5. Persist the hold and transition all inventory rows to `HELD` with one expiry instant.
 6. Commit atomically.
 
-Sorting IDs ensures competing multi-seat requests acquire locks in the same order, reducing deadlock risk. The unique `(event_id, seat_id)` constraint prevents duplicate inventory. A `SOLD` transition clears hold metadata but retains the event-seat record, and `tickets.event_seat_id` is unique. The scheduled cleanup is useful for prompt availability; correctness does not depend on scheduler timing because a reservation attempt reclaims an expired hold while it owns the row lock.
+Sorting IDs ensures competing multi-seat requests acquire locks in the same order, reducing deadlock risk. The unique `(event_id, seat_id)` constraint prevents duplicate inventory. A `SOLD` transition clears hold metadata but retains the event-seat record. A partial unique index on `tickets.event_seat_id` permits only one `ISSUED` ticket per seat; cancelled tickets remain as history without blocking resale after a refund. The scheduled cleanup is useful for prompt availability; correctness does not depend on scheduler timing because a reservation attempt reclaims an expired hold while it owns the row lock.
 
-Checkout locks the hold, verifies ownership and expiry, locks its inventory, charges through the payment port, writes one order, marks inventory sold, transitions the hold, and issues tickets in one transaction. A retry with the same customer and idempotency key returns the original order. Different keys cannot check out the same hold because the hold is locked and `orders.hold_id` is unique.
+Checkout locks inventory first, then the hold, verifies ownership, expiry, and that the event is still published and has not started, charges through the payment port, writes one order, marks inventory sold, transitions the hold, and issues tickets in one transaction. A retry with the same customer and idempotency key returns the original order. Different keys cannot check out the same hold because the hold is locked and `orders.hold_id` is unique.
+
+Event cancellation locks all of its inventory in the same order before checking for sold seats and cancelling outstanding holds. If checkout commits first, cancellation requires refunding the sold orders; if cancellation commits first, checkout is rejected. This coordinates cancellation with purchases without serializing unrelated-seat purchases on a shared event lock.
 
 ## Data model
 
@@ -182,7 +184,7 @@ Use `tok_decline` to exercise the payment-declined path. The mock gateway intent
 
 `ReservationConcurrencyIT` launches PostgreSQL 17 and sends 50 synchronized requests through separate threads at one inventory row. It requires exactly one winner. The same suite covers expiry, idempotent checkout, payment rollback, refund/inventory release, order and organizer ownership isolation, and refresh-token rotation. Integration tests automatically skip on a machine without Docker; CI runs them with Docker available.
 
-`ApiWorkflowIT` exercises the HTTP contracts from organizer registration and admin approval through venue/event creation, publication, customer registration, seat hold, checkout, ticket issuance, and refund. It also verifies the public web client and RFC 9457 validation response.
+`ApiWorkflowIT` exercises the HTTP contracts from organizer registration and admin approval through venue/event creation, publication, customer registration, seat hold, checkout, ticket issuance, refund, and repeated resale. It checks that historical cancelled tickets remain readable and that the database rejects a second issued ticket for the same seat. It also verifies the public web client and RFC 9457 validation response.
 
 The suite focuses on behavior rather than getters: HTTP contracts, payment and refund boundaries, account lockout, early duplicate validation, application context/migrations, transactional rollback, ownership isolation, token rotation, and the double-booking race.
 

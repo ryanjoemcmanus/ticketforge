@@ -7,12 +7,15 @@ import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
 public interface EventSeatRepository extends JpaRepository<EventSeat, UUID> {
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select es from EventSeat es where es.event.id=:eventId order by es.id")
+  List<EventSeat> findByEventIdLocked(@Param("eventId") UUID eventId);
+
   List<EventSeat> findByEventIdOrderBySeatSectionNameAscSeatRowLabelAscSeatSeatNumberAsc(
       UUID eventId);
 
   @Lock(LockModeType.PESSIMISTIC_WRITE)
-  @Query(
-      "select es from EventSeat es join fetch es.event join fetch es.seat where es.id in :ids order by es.id")
+  @Query("select es from EventSeat es where es.id in :ids order by es.id")
   List<EventSeat> findAllLocked(@Param("ids") Collection<UUID> ids);
 
   @Lock(LockModeType.PESSIMISTIC_WRITE)

@@ -14,8 +14,8 @@ public class Ticket {
   @JoinColumn(name = "order_id")
   private CustomerOrder order;
 
-  @OneToOne(fetch = FetchType.LAZY, optional = false)
-  @JoinColumn(name = "event_seat_id", unique = true)
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "event_seat_id", nullable = false)
   private EventSeat eventSeat;
 
   @Column(name = "ticket_code", nullable = false, unique = true, length = 80)
