@@ -180,11 +180,14 @@ Use `tok_decline` to exercise the payment-declined path. The mock gateway intent
 ```bash
 ./mvnw test       # fast unit tests
 ./mvnw verify     # unit + Testcontainers integration tests
+node --test src/test/js/*.test.cjs  # client logic tests (Node.js 22+)
 ```
 
 `ReservationConcurrencyIT` launches PostgreSQL 17 and sends 50 synchronized requests through separate threads at one inventory row. It requires exactly one winner. The same suite covers expiry, idempotent checkout, payment rollback, refund/inventory release, order and organizer ownership isolation, and refresh-token rotation. Integration tests automatically skip on a machine without Docker; CI runs them with Docker available.
 
 `ApiWorkflowIT` exercises the HTTP contracts from organizer registration and admin approval through venue/event creation, publication, customer registration, seat hold, checkout, ticket issuance, refund, and repeated resale. It checks that historical cancelled tickets remain readable and that the database rejects a second issued ticket for the same seat. It also verifies the public web client and RFC 9457 validation response.
+
+The browser client omits bearer tokens from public browsing and authentication calls. A rejected protected request clears its stale session and prompts sign-in; it deliberately does not silently refresh access tokens. Password reset clears the current browser session. Checkout disables duplicate submissions and retains one idempotency key per held-seat checkout attempt across in-page retries (not across page reloads). Client tests cover these behaviors with mocked requests, separate from the PostgreSQL integration suite.
 
 The suite focuses on behavior rather than getters: HTTP contracts, payment and refund boundaries, account lockout, early duplicate validation, application context/migrations, transactional rollback, ownership isolation, token rotation, and the double-booking race.
 

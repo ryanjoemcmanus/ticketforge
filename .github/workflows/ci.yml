@@ -13,4 +13,5 @@ jobs:
           java-version: '21'
           cache: maven
       - run: ./mvnw verify
+      - run: node --test src/test/js/*.test.cjs
       - run: docker build --tag ticketforge:ci .
