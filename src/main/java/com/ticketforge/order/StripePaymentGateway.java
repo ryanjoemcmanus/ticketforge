@@ -40,7 +40,15 @@ public class StripePaymentGateway implements PaymentGateway {
               .setAmount(minorUnits(amount))
               .setCurrency(currency)
               .setPaymentMethod(paymentMethod)
-              .addPaymentMethodType("card")
+              // stripe-java 34 (API 2026-09-30.endive) removed payment_method_types. Dynamic
+              // payment methods with redirects disabled keep this server-side confirm flow
+              // working without a return_url.
+              .setAutomaticPaymentMethods(
+                  PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
+                      .setEnabled(true)
+                      .setAllowRedirects(
+                          PaymentIntentCreateParams.AutomaticPaymentMethods.AllowRedirects.NEVER)
+                      .build())
               .setConfirm(true)
               .setErrorOnRequiresAction(true)
               .build();
